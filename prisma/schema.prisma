@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  not_applied
+  applied
+  deleted
+}
+
+enum JobLevel {
+  mid
+  senior
+}
+
+enum LeadStatus {
+  new
+  emailed
+  followed_up
+  replied
+  won
+  closed
+  deleted
+}
+
+enum ClientStatus {
+  active
+  not_active
+  in_progress
+}
+
+enum RevenueType {
+  initial_project
+  additional_functionality
+  maintenance
+}
+
+model Job {
+  id        String     @id @default(cuid())
+  title     String
+  url       String     @db.VarChar(2048)
+  company   String?
+  location  String?
+  country   String?
+  level     JobLevel?
+  skills    Json
+  source    String?
+  status    JobStatus  @default(not_applied)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([status])
+  @@index([country])
+  @@index([level])
+  @@map("jobs")
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  location  String?
+  country   String?
+  note      String?    @db.Text
+  source    String?
+  status    LeadStatus @default(new)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([status])
+  @@index([source])
+  @@map("leads")
+}
+
+model Client {
+  id        String       @id @default(cuid())
+  name      String
+  status    ClientStatus @default(in_progress)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  revenues  Revenue[]
+
+  @@index([status])
+  @@map("clients")
+}
+
+model Revenue {
+  id         String      @id @default(cuid())
+  clientId   String
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type       RevenueType
+  amount     Decimal     @db.Decimal(12, 2)
+  currency   String      @default("EUR") @db.VarChar(3)
+  occurredAt DateTime
+  note       String?     @db.Text
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([clientId, occurredAt])
+  @@index([type])
+  @@map("revenues")
+}
