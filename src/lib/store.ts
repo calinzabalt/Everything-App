@@ -4,6 +4,7 @@ import {
   type JobStatus,
   type Lead,
 } from "@/data/examples";
+import { PAGE_SIZE, type LeadListTab } from "@/lib/paging";
 import { prisma } from "@/lib/prisma";
 
 function optionalText(value: string) {
@@ -73,14 +74,192 @@ function leadFromDb(row: DbLead): Lead {
   };
 }
 
-export async function getJobs() {
-  const rows = await prisma.job.findMany({ orderBy: { createdAt: "desc" } });
-  return rows.map(jobFromDb);
+export type JobsPage = {
+  items: Job[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: Record<JobStatus, number>;
+};
+
+export type LeadsPage = {
+  items: Lead[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: { open: number; deleted: number };
+};
+
+export type DashboardStats = {
+  jobs: {
+    total: number;
+    not_applied: number;
+    applied: number;
+    deleted: number;
+    byCountry: Record<string, number>;
+  };
+  leads: {
+    saved: number;
+    new: number;
+    bySource: Record<string, number>;
+  };
+};
+
+function clampPage(page: number) {
+  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
 }
 
-export async function getLeads() {
-  const rows = await prisma.lead.findMany({ orderBy: { createdAt: "desc" } });
-  return rows.map(leadFromDb);
+function tally(
+  rows: { label: string | null; count: number }[],
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    const label = row.label?.trim();
+    if (!label || label === "—") continue;
+    result[label] = row.count;
+  }
+  return result;
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const [jobStatusCounts, jobCountries, leadStatusCounts, leadSources] =
+    await Promise.all([
+      prisma.job.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+      }),
+      prisma.job.groupBy({
+        by: ["country"],
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["source"],
+        where: { status: { not: "deleted" } },
+        _count: { _all: true },
+      }),
+    ]);
+
+  const jobs = {
+    total: 0,
+    not_applied: 0,
+    applied: 0,
+    deleted: 0,
+    byCountry: tally(
+      jobCountries.map((row) => ({
+        label: row.country,
+        count: row._count._all,
+      })),
+    ),
+  };
+  for (const row of jobStatusCounts) {
+    jobs[row.status] = row._count._all;
+    jobs.total += row._count._all;
+  }
+
+  let saved = 0;
+  let newCount = 0;
+  for (const row of leadStatusCounts) {
+    if (row.status === "deleted") continue;
+    saved += row._count._all;
+    if (row.status === "new") newCount = row._count._all;
+  }
+
+  return {
+    jobs,
+    leads: {
+      saved,
+      new: newCount,
+      bySource: tally(
+        leadSources.map((row) => ({
+          label: row.source,
+          count: row._count._all,
+        })),
+      ),
+    },
+  };
+}
+
+export async function getJobsPage(
+  status: JobStatus,
+  page: number,
+  pageSize = PAGE_SIZE,
+): Promise<JobsPage> {
+  const safePage = clampPage(page);
+  const where = { status };
+  const [rows, total, grouped] = await Promise.all([
+    prisma.job.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.job.count({ where }),
+    prisma.job.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+  ]);
+
+  const counts: Record<JobStatus, number> = {
+    not_applied: 0,
+    applied: 0,
+    deleted: 0,
+  };
+  for (const row of grouped) {
+    counts[row.status] = row._count._all;
+  }
+
+  return {
+    items: rows.map(jobFromDb),
+    total,
+    page: safePage,
+    pageSize,
+    counts,
+  };
+}
+
+export async function getLeadsPage(
+  tab: LeadListTab,
+  page: number,
+  pageSize = PAGE_SIZE,
+): Promise<LeadsPage> {
+  const safePage = clampPage(page);
+  const where =
+    tab === "deleted"
+      ? { status: "deleted" as const }
+      : { status: { not: "deleted" as const } };
+  const [rows, total, grouped] = await Promise.all([
+    prisma.lead.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.lead.count({ where }),
+    prisma.lead.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+  ]);
+
+  let open = 0;
+  let deleted = 0;
+  for (const row of grouped) {
+    if (row.status === "deleted") deleted = row._count._all;
+    else open += row._count._all;
+  }
+
+  return {
+    items: rows.map(leadFromDb),
+    total,
+    page: safePage,
+    pageSize,
+    counts: { open, deleted },
+  };
 }
 
 export async function addJob(input: Omit<Job, "id"> & { id?: string }) {

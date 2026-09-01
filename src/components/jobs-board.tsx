@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { createJobAction, updateJobStatusAction } from "@/app/actions/records";
+import { useEffect, useState } from "react";
+import {
+  createJobAction,
+  listJobsAction,
+  updateJobStatusAction,
+} from "@/app/actions/records";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { LoadingOverlay } from "@/components/loading-screen";
+import { PaginationBar } from "@/components/pagination-bar";
 import { Spinner } from "@/components/spinner";
 import { ViewToggle, type BoardView } from "@/components/view-toggle";
 import type { Job, JobStatus } from "@/data/examples";
 import { formatPlace } from "@/lib/format";
+import { PAGE_SIZE } from "@/lib/paging";
 
 const statusTabs: { id: JobStatus; label: string }[] = [
   { id: "not_applied", label: "Not applied" },
@@ -15,18 +21,56 @@ const statusTabs: { id: JobStatus; label: string }[] = [
   { id: "deleted", label: "Deleted" },
 ];
 
-export function JobsBoard({ jobs }: { jobs: Job[] }) {
-  const [items, setItems] = useState(jobs);
+export function JobsBoard() {
+  const [items, setItems] = useState<Job[]>([]);
   const [status, setStatus] = useState<JobStatus>("not_applied");
   const [view, setView] = useState<BoardView>("list");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [counts, setCounts] = useState<Record<JobStatus, number>>({
+    not_applied: 0,
+    applied: 0,
+    deleted: 0,
+  });
   const [addOpen, setAddOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const visible = useMemo(
-    () => items.filter((job) => job.status === status),
-    [items, status],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    listJobsAction(status, page)
+      .then((result) => {
+        if (cancelled) return;
+        const pageCount = Math.max(1, Math.ceil(result.total / result.pageSize));
+        if (page > pageCount) {
+          setPage(pageCount);
+          return;
+        }
+        setItems(result.items);
+        setTotal(result.total);
+        setPageSize(result.pageSize);
+        setCounts(result.counts);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, page, reloadKey]);
+
   const busy = pendingId !== null;
+
+  function changeStatus(next: JobStatus) {
+    setStatus(next);
+    setPage(1);
+  }
 
   async function setJobStatus(id: string, next: JobStatus) {
     if (busy) return;
@@ -34,22 +78,11 @@ export function JobsBoard({ jobs }: { jobs: Job[] }) {
     try {
       const updated = await updateJobStatusAction(id, next);
       if (!updated) return;
-      setItems((current) =>
-        current.map((job) => (job.id === id ? updated : job)),
-      );
+      setReloadKey((key) => key + 1);
     } finally {
       setPendingId(null);
     }
   }
-
-  const counts = useMemo(
-    () => ({
-      not_applied: items.filter((job) => job.status === "not_applied").length,
-      applied: items.filter((job) => job.status === "applied").length,
-      deleted: items.filter((job) => job.status === "deleted").length,
-    }),
-    [items],
-  );
 
   return (
     <div className="relative flex h-full flex-col">
@@ -60,7 +93,7 @@ export function JobsBoard({ jobs }: { jobs: Job[] }) {
               Job Finder
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
-              {visible.length} {statusTabs.find((tab) => tab.id === status)?.label.toLowerCase()}
+              {total} {statusTabs.find((tab) => tab.id === status)?.label.toLowerCase()}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -81,7 +114,7 @@ export function JobsBoard({ jobs }: { jobs: Job[] }) {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setStatus(tab.id)}
+              onClick={() => changeStatus(tab.id)}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200 ${
                 status === tab.id
                   ? "bg-sky-600 text-white"
@@ -104,32 +137,40 @@ export function JobsBoard({ jobs }: { jobs: Job[] }) {
       <div key={`${status}-${view}`} className="relative min-h-0 flex-1 animate-fade-in">
         {view === "list" ? (
           <JobList
-            jobs={visible}
+            jobs={items}
             status={status}
             pendingId={pendingId}
             onStatus={setJobStatus}
           />
         ) : (
           <JobGrid
-            jobs={visible}
+            jobs={items}
             status={status}
             pendingId={pendingId}
             onStatus={setJobStatus}
           />
         )}
-        {busy ? <LoadingOverlay label="Updating job…" /> : null}
+        {loading || busy ? (
+          <LoadingOverlay label={loading ? "Loading jobs…" : "Updating job…"} />
+        ) : null}
       </div>
+
+      <PaginationBar
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPage={setPage}
+        disabled={loading || busy}
+      />
 
       <AddJobDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onAdd={async (job) => {
-          const saved = await createJobAction(job);
-          setItems((current) => [
-            saved,
-            ...current.filter((item) => item.id !== saved.id),
-          ]);
+          await createJobAction(job);
           setStatus("not_applied");
+          setPage(1);
+          setReloadKey((key) => key + 1);
           setAddOpen(false);
         }}
       />

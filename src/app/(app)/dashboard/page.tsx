@@ -1,31 +1,10 @@
 import Link from "next/link";
-import { getJobs, getLeads } from "@/lib/store";
-
-function countBy(items: string[]) {
-  return items.reduce<Record<string, number>>((acc, key) => {
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-}
+import { getDashboardStats } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const jobs = await getJobs();
-  const leads = await getLeads();
-  const jobCounts = {
-    total: jobs.length,
-    not_applied: jobs.filter((job) => job.status === "not_applied").length,
-    applied: jobs.filter((job) => job.status === "applied").length,
-    deleted: jobs.filter((job) => job.status === "deleted").length,
-  };
-  const activeLeads = leads.filter((lead) => lead.status !== "Deleted");
-  const jobsByCountry = countBy(
-    jobs.map((job) => job.country).filter((country) => country && country !== "—"),
-  );
-  const leadsBySource = countBy(
-    activeLeads.map((lead) => lead.source).filter(Boolean),
-  );
+  const { jobs, leads } = await getDashboardStats();
 
   return (
     <div className="h-full overflow-auto px-8 py-6">
@@ -44,12 +23,12 @@ export default async function DashboardPage() {
           href="/jobs"
           linkLabel="Open jobs"
           stats={[
-            { label: "Saved", value: jobCounts.total },
-            { label: "Not applied", value: jobCounts.not_applied },
-            { label: "Applied", value: jobCounts.applied },
-            { label: "Deleted", value: jobCounts.deleted },
+            { label: "Saved", value: jobs.total },
+            { label: "Not applied", value: jobs.not_applied },
+            { label: "Applied", value: jobs.applied },
+            { label: "Deleted", value: jobs.deleted },
           ]}
-          breakdown={jobsByCountry}
+          breakdown={jobs.byCountry}
           breakdownLabel="By country"
         />
 
@@ -58,10 +37,10 @@ export default async function DashboardPage() {
           href="/leads"
           linkLabel="Open leads"
           stats={[
-            { label: "Saved", value: activeLeads.length },
-            { label: "New", value: activeLeads.filter((lead) => lead.status === "New").length },
+            { label: "Saved", value: leads.saved },
+            { label: "New", value: leads.new },
           ]}
-          breakdown={leadsBySource}
+          breakdown={leads.bySource}
           breakdownLabel="By source"
         />
 

@@ -1,47 +1,74 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createLeadAction,
+  listLeadsAction,
   updateLeadStatusAction,
 } from "@/app/actions/records";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadDrawer } from "@/components/lead-drawer";
 import { LoadingOverlay } from "@/components/loading-screen";
+import { PaginationBar } from "@/components/pagination-bar";
 import { ViewToggle, type BoardView } from "@/components/view-toggle";
 import type { Lead } from "@/data/examples";
 import { formatPlace } from "@/lib/format";
+import { PAGE_SIZE, type LeadListTab } from "@/lib/paging";
 
-type LeadTab = "open" | "deleted";
+type LeadTab = LeadListTab;
 
 const tabs: { id: LeadTab; label: string }[] = [
   { id: "open", label: "Leads" },
   { id: "deleted", label: "Deleted" },
 ];
 
-export function LeadsBoard({ leads }: { leads: Lead[] }) {
-  const [items, setItems] = useState(leads);
+export function LeadsBoard() {
+  const [items, setItems] = useState<Lead[]>([]);
   const [view, setView] = useState<BoardView>("list");
   const [tab, setTab] = useState<LeadTab>("open");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [counts, setCounts] = useState({ open: 0, deleted: 0 });
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Lead | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const visible = useMemo(
-    () =>
-      items.filter((lead) =>
-        tab === "deleted" ? lead.status === "Deleted" : lead.status !== "Deleted",
-      ),
-    [items, tab],
-  );
-  const counts = useMemo(
-    () => ({
-      open: items.filter((lead) => lead.status !== "Deleted").length,
-      deleted: items.filter((lead) => lead.status === "Deleted").length,
-    }),
-    [items],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    listLeadsAction(tab, page)
+      .then((result) => {
+        if (cancelled) return;
+        const pageCount = Math.max(1, Math.ceil(result.total / result.pageSize));
+        if (page > pageCount) {
+          setPage(pageCount);
+          return;
+        }
+        setItems(result.items);
+        setTotal(result.total);
+        setPageSize(result.pageSize);
+        setCounts(result.counts);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, page, reloadKey]);
+
   const busy = pendingId !== null;
+
+  function changeTab(next: LeadTab) {
+    setTab(next);
+    setPage(1);
+  }
 
   async function setLeadStatus(id: string, status: string) {
     if (busy) return;
@@ -49,10 +76,8 @@ export function LeadsBoard({ leads }: { leads: Lead[] }) {
     try {
       const updated = await updateLeadStatusAction(id, status);
       if (!updated) return;
-      setItems((current) =>
-        current.map((lead) => (lead.id === id ? updated : lead)),
-      );
       setSelected(null);
+      setReloadKey((key) => key + 1);
     } finally {
       setPendingId(null);
     }
@@ -67,7 +92,7 @@ export function LeadsBoard({ leads }: { leads: Lead[] }) {
               Lead Finder
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
-              {visible.length} {tab === "deleted" ? "deleted" : "saved"} leads
+              {total} {tab === "deleted" ? "deleted" : "saved"} leads
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -88,7 +113,7 @@ export function LeadsBoard({ leads }: { leads: Lead[] }) {
             <button
               key={item.id}
               type="button"
-              onClick={() => setTab(item.id)}
+              onClick={() => changeTab(item.id)}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200 ${
                 tab === item.id
                   ? "bg-sky-600 text-white"
@@ -111,7 +136,7 @@ export function LeadsBoard({ leads }: { leads: Lead[] }) {
       <div key={`${tab}-${view}`} className="relative min-h-0 flex-1 animate-fade-in">
         {view === "list" ? (
           <LeadList
-            leads={visible}
+            leads={items}
             tab={tab}
             pendingId={pendingId}
             onSelect={setSelected}
@@ -119,30 +144,42 @@ export function LeadsBoard({ leads }: { leads: Lead[] }) {
           />
         ) : (
           <LeadGrid
-            leads={visible}
+            leads={items}
             tab={tab}
             pendingId={pendingId}
             onSelect={setSelected}
             onStatus={setLeadStatus}
           />
         )}
-        {busy ? (
+        {loading || busy ? (
           <LoadingOverlay
-            label={tab === "deleted" ? "Restoring lead…" : "Deleting lead…"}
+            label={
+              loading
+                ? "Loading leads…"
+                : tab === "deleted"
+                  ? "Restoring lead…"
+                  : "Deleting lead…"
+            }
           />
         ) : null}
       </div>
+
+      <PaginationBar
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPage={setPage}
+        disabled={loading || busy}
+      />
 
       <AddLeadDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onAdd={async (lead) => {
-          const saved = await createLeadAction(lead);
-          setItems((current) => [
-            saved,
-            ...current.filter((item) => item.id !== saved.id),
-          ]);
+          await createLeadAction(lead);
           setTab("open");
+          setPage(1);
+          setReloadKey((key) => key + 1);
           setAddOpen(false);
         }}
       />
