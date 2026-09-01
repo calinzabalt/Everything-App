@@ -9,8 +9,8 @@ import {
   updateJobStatus,
   updateLeadStatus,
 } from "@/lib/store";
-import type { LeadListTab } from "@/lib/paging";
-import type { Job, JobStatus, Lead } from "@/data/examples";
+import type { LeadChannel } from "@/lib/leads";
+import type { Job, JobStatus, Lead, LeadStatus } from "@/data/examples";
 
 export async function listJobsAction(status: JobStatus, page: number) {
   const session = await getSession();
@@ -18,10 +18,14 @@ export async function listJobsAction(status: JobStatus, page: number) {
   return getJobsPage(status, page);
 }
 
-export async function listLeadsAction(tab: LeadListTab, page: number) {
+export async function listLeadsAction(
+  status: LeadStatus,
+  page: number,
+  channel: LeadChannel = "all",
+) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
-  return getLeadsPage(tab, page);
+  return getLeadsPage(status, page, channel);
 }
 
 export async function createJobAction(job: Job) {
@@ -42,7 +46,7 @@ export async function createLeadAction(lead: Lead) {
   return addLead(lead);
 }
 
-export async function updateLeadStatusAction(id: string, status: string) {
+export async function updateLeadStatusAction(id: string, status: LeadStatus) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
   return updateLeadStatus(id, status);

@@ -1,24 +1,24 @@
 "use client";
 
 import { useEffect } from "react";
-import type { Lead } from "@/data/examples";
+import type { Lead, LeadStatus } from "@/data/examples";
 import { formatPlace } from "@/lib/format";
-import { Spinner } from "@/components/spinner";
+import { hrefForUrl } from "@/lib/leads";
+import { LeadChannelBadges } from "@/components/lead-channel-badges";
+import { LeadStatusSelect } from "@/components/lead-status-select";
 
 type Props = {
   lead: Lead | null;
   pending?: boolean;
   onClose: () => void;
-  onDelete?: () => void;
-  onRestore?: () => void;
+  onStatus?: (status: LeadStatus) => void;
 };
 
 export function LeadDrawer({
   lead,
   pending = false,
   onClose,
-  onDelete,
-  onRestore,
+  onStatus,
 }: Props) {
   useEffect(() => {
     if (!lead) return;
@@ -56,40 +56,33 @@ export function LeadDrawer({
             >
               {lead.name}
             </h2>
+            <div className="mt-2">
+              <LeadChannelBadges lead={lead} />
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {lead.status === "Deleted" ? (
-              <button
-                type="button"
-                onClick={onRestore}
-                disabled={pending}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
-              >
-                {pending ? <Spinner className="h-4 w-4" /> : "Restore"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onDelete}
-                disabled={pending}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50"
-              >
-                {pending ? <Spinner className="h-4 w-4" /> : "Delete"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-2 py-1 text-sm font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-            >
-              Close
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-2 py-1 text-sm font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            Close
+          </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
           <dl className="grid gap-4">
-            <Field label="Status" value={lead.status} />
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                Status
+              </dt>
+              <dd className="mt-1.5">
+                <LeadStatusSelect
+                  value={lead.status}
+                  disabled={pending || !onStatus}
+                  onChange={(next) => onStatus?.(next)}
+                />
+              </dd>
+            </div>
             <Field
               label="Location"
               value={formatPlace(lead.location, lead.country)}
@@ -123,6 +116,25 @@ export function LeadDrawer({
                     className="text-sky-700 hover:text-sky-900"
                   >
                     {lead.phone}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                Contact page
+              </dt>
+              <dd className="mt-1 text-sm text-zinc-800">
+                {lead.url ? (
+                  <a
+                    href={hrefForUrl(lead.url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-sky-700 hover:text-sky-900"
+                  >
+                    {lead.url}
                   </a>
                 ) : (
                   "—"

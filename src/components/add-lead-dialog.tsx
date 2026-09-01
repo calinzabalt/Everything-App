@@ -14,6 +14,7 @@ export function AddLeadDialog({ open, onClose, onAdd }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [url, setUrl] = useState("");
   const [location, setLocation] = useState("");
   const [country, setCountry] = useState("");
   const [source, setSource] = useState("");
@@ -27,6 +28,7 @@ export function AddLeadDialog({ open, onClose, onAdd }: Props) {
     setName("");
     setEmail("");
     setPhone("");
+    setUrl("");
     setLocation("");
     setCountry("");
     setSource("");
@@ -65,11 +67,12 @@ export function AddLeadDialog({ open, onClose, onAdd }: Props) {
         name: business,
         email: email.trim(),
         phone: phone.trim(),
+        url: url.trim(),
         location: location.trim(),
         country: country.trim(),
         note: note.trim(),
         source: source.trim() || "Manual",
-        status: "New",
+        status: "new",
       });
     } catch {
       setError("Could not save. Try again.");
@@ -137,6 +140,16 @@ export function AddLeadDialog({ open, onClose, onAdd }: Props) {
               />
             </label>
           </div>
+
+          <label className="text-sm font-medium text-zinc-700">
+            Contact page
+            <input
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              className={fieldClass}
+              placeholder="https://example.com/contact"
+            />
+          </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm font-medium text-zinc-700">

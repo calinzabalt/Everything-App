@@ -13,6 +13,14 @@ export type Job = {
   status: JobStatus;
 };
 
+export type LeadStatus =
+  | "new"
+  | "contacted"
+  | "lead"
+  | "won"
+  | "closed"
+  | "deleted";
+
 export type Lead = {
   id: string;
   name: string;
@@ -21,8 +29,9 @@ export type Lead = {
   note: string;
   email: string;
   phone: string;
+  url: string;
   source: string;
-  status: string;
+  status: LeadStatus;
 };
 
 const jobDrafts: Omit<Job, "status">[] = [
@@ -271,8 +280,9 @@ export const exampleLeads: Lead[] = [
     note: "Local bakery. No website.",
     email: "contact@example.ro",
     phone: "+40 265 123 456",
+    url: "",
     source: "Google Maps",
-    status: "New",
+    status: "new",
   },
   {
     id: "lead-2",
@@ -282,7 +292,8 @@ export const exampleLeads: Lead[] = [
     note: "Agency looking for WordPress and React work.",
     email: "hello@example.co.uk",
     phone: "+44 161 496 0123",
+    url: "https://northpeak.example",
     source: "Clutch",
-    status: "New",
+    status: "new",
   },
 ];

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isIngestAuthorized } from "@/lib/ingest-auth";
 import { addLead } from "@/lib/store";
+import { parseLeadStatus } from "@/lib/leads";
 import type { Lead } from "@/data/examples";
 
 export const runtime = "nodejs";
@@ -17,11 +18,19 @@ function leadFrom(body: Record<string, unknown>): Omit<Lead, "id"> | null {
     name,
     email: text(body.email),
     phone: text(body.phone) || text(body.phoneNumber) || text(body.phone_number),
+    url:
+      text(body.url) ||
+      text(body.website) ||
+      text(body.site) ||
+      text(body.contactUrl) ||
+      text(body.contact_url) ||
+      text(body.contactPage) ||
+      text(body.contact_page),
     location: text(body.location),
     country: text(body.country),
     note: text(body.note) || text(body.notes),
     source: text(body.source) || "Grok",
-    status: text(body.status) || "New",
+    status: parseLeadStatus(text(body.status) || "new"),
   };
 }
 

@@ -20,9 +20,8 @@ enum JobLevel {
 
 enum LeadStatus {
   new
-  emailed
-  followed_up
-  replied
+  contacted
+  lead
   won
   closed
   deleted
@@ -65,6 +64,7 @@ model Lead {
   name      String
   email     String?
   phone     String?
+  url       String?    @db.VarChar(2048)
   location  String?
   country   String?
   note      String?    @db.Text

@@ -1,10 +1,11 @@
-import type { Job as DbJob, Lead as DbLead, LeadStatus } from "@prisma/client";
+import type { Job as DbJob, Lead as DbLead, LeadStatus, Prisma } from "@prisma/client";
 import {
   type Job,
   type JobStatus,
   type Lead,
 } from "@/data/examples";
-import { PAGE_SIZE, type LeadListTab } from "@/lib/paging";
+import { emptyLeadCounts, parseLeadStatus, type LeadChannel } from "@/lib/leads";
+import { PAGE_SIZE } from "@/lib/paging";
 import { prisma } from "@/lib/prisma";
 
 function optionalText(value: string) {
@@ -33,31 +34,7 @@ function jobFromDb(row: DbJob): Job {
 }
 
 function leadStatusToDb(status: string): LeadStatus {
-  const key = status.trim().toLowerCase().replace(/[\s-]+/g, "_");
-  if (
-    key === "emailed" ||
-    key === "followed_up" ||
-    key === "replied" ||
-    key === "won" ||
-    key === "closed" ||
-    key === "deleted"
-  ) {
-    return key;
-  }
-  return "new";
-}
-
-function leadStatusFromDb(status: LeadStatus) {
-  const labels: Record<LeadStatus, string> = {
-    new: "New",
-    emailed: "Emailed",
-    followed_up: "Followed up",
-    replied: "Replied",
-    won: "Won",
-    closed: "Closed",
-    deleted: "Deleted",
-  };
-  return labels[status];
+  return parseLeadStatus(status);
 }
 
 function leadFromDb(row: DbLead): Lead {
@@ -66,11 +43,12 @@ function leadFromDb(row: DbLead): Lead {
     name: row.name,
     email: row.email ?? "",
     phone: row.phone ?? "",
+    url: row.url ?? "",
     location: row.location ?? "",
     country: row.country ?? "",
     note: row.note ?? "",
     source: row.source ?? "",
-    status: leadStatusFromDb(row.status),
+    status: row.status,
   };
 }
 
@@ -87,7 +65,7 @@ export type LeadsPage = {
   total: number;
   page: number;
   pageSize: number;
-  counts: { open: number; deleted: number };
+  counts: Record<LeadStatus, number>;
 };
 
 export type DashboardStats = {
@@ -101,6 +79,8 @@ export type DashboardStats = {
   leads: {
     saved: number;
     new: number;
+    contacted: number;
+    lead: number;
     bySource: Record<string, number>;
   };
 };
@@ -161,18 +141,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   let saved = 0;
-  let newCount = 0;
+  const leadCounts = { ...emptyLeadCounts };
   for (const row of leadStatusCounts) {
-    if (row.status === "deleted") continue;
-    saved += row._count._all;
-    if (row.status === "new") newCount = row._count._all;
+    leadCounts[row.status] = row._count._all;
+    if (row.status !== "deleted") saved += row._count._all;
   }
 
   return {
     jobs,
     leads: {
       saved,
-      new: newCount,
+      new: leadCounts.new,
+      contacted: leadCounts.contacted,
+      lead: leadCounts.lead,
       bySource: tally(
         leadSources.map((row) => ({
           label: row.source,
@@ -222,16 +203,29 @@ export async function getJobsPage(
   };
 }
 
+function leadListWhere(
+  status: LeadStatus,
+  channel: LeadChannel,
+): Prisma.LeadWhereInput {
+  const where: Prisma.LeadWhereInput = { status };
+  if (channel === "email") {
+    where.AND = [{ email: { not: null } }, { email: { not: "" } }];
+  } else if (channel === "phone") {
+    where.AND = [{ phone: { not: null } }, { phone: { not: "" } }];
+  } else if (channel === "url") {
+    where.AND = [{ url: { not: null } }, { url: { not: "" } }];
+  }
+  return where;
+}
+
 export async function getLeadsPage(
-  tab: LeadListTab,
+  status: LeadStatus,
   page: number,
+  channel: LeadChannel = "all",
   pageSize = PAGE_SIZE,
 ): Promise<LeadsPage> {
   const safePage = clampPage(page);
-  const where =
-    tab === "deleted"
-      ? { status: "deleted" as const }
-      : { status: { not: "deleted" as const } };
+  const where = leadListWhere(status, channel);
   const [rows, total, grouped] = await Promise.all([
     prisma.lead.findMany({
       where,
@@ -246,11 +240,9 @@ export async function getLeadsPage(
     }),
   ]);
 
-  let open = 0;
-  let deleted = 0;
+  const counts = { ...emptyLeadCounts };
   for (const row of grouped) {
-    if (row.status === "deleted") deleted = row._count._all;
-    else open += row._count._all;
+    counts[row.status] = row._count._all;
   }
 
   return {
@@ -258,7 +250,7 @@ export async function getLeadsPage(
     total,
     page: safePage,
     pageSize,
-    counts: { open, deleted },
+    counts,
   };
 }
 
@@ -299,6 +291,7 @@ export async function addLead(input: Omit<Lead, "id"> & { id?: string }) {
   const name = input.name.trim();
   const email = input.email.trim();
   const phone = (input.phone ?? "").trim();
+  const url = (input.url ?? "").trim();
   const location = optionalText(input.location);
 
   const existing = email
@@ -306,18 +299,37 @@ export async function addLead(input: Omit<Lead, "id"> & { id?: string }) {
     : await prisma.lead.findFirst({
         where: { name, location },
       });
-  if (existing) return leadFromDb(existing);
+  if (existing) {
+    const next = {
+      email: existing.email || email || null,
+      phone: existing.phone || phone || null,
+      url: existing.url || url || null,
+    };
+    if (
+      next.email !== existing.email ||
+      next.phone !== existing.phone ||
+      next.url !== existing.url
+    ) {
+      const row = await prisma.lead.update({
+        where: { id: existing.id },
+        data: next,
+      });
+      return leadFromDb(row);
+    }
+    return leadFromDb(existing);
+  }
 
   const row = await prisma.lead.create({
     data: {
       name,
       email: email || null,
       phone: phone || null,
+      url: url || null,
       location,
       country: optionalText(input.country),
       note: input.note.trim() || null,
       source: input.source.trim() || "Grok",
-      status: leadStatusToDb(input.status || "New"),
+      status: leadStatusToDb(input.status || "new"),
     },
   });
   return leadFromDb(row);

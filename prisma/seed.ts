@@ -39,11 +39,12 @@ async function main() {
       name: lead.name,
       email: lead.email,
       phone: lead.phone,
+      url: lead.url || null,
       location: lead.location,
       country: lead.country,
       note: lead.note,
       source: lead.source,
-      status: "new",
+      status: lead.status,
     })),
   });
 }

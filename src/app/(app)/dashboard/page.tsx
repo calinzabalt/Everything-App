@@ -39,6 +39,8 @@ export default async function DashboardPage() {
           stats={[
             { label: "Saved", value: leads.saved },
             { label: "New", value: leads.new },
+            { label: "Contacted", value: leads.contacted },
+            { label: "Lead", value: leads.lead },
           ]}
           breakdown={leads.bySource}
           breakdownLabel="By source"
