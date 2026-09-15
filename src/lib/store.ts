@@ -335,6 +335,11 @@ export async function addLead(input: Omit<Lead, "id"> & { id?: string }) {
   return leadFromDb(row);
 }
 
+export async function getLead(id: string) {
+  const row = await prisma.lead.findUnique({ where: { id } });
+  return row ? leadFromDb(row) : null;
+}
+
 export async function updateLeadStatus(id: string, status: string) {
   try {
     const row = await prisma.lead.update({

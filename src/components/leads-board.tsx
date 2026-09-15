@@ -218,6 +218,10 @@ export function LeadsBoard() {
         pending={selected ? pendingId === selected.id : false}
         onClose={() => setSelected(null)}
         onStatus={(next) => selected && setLeadStatus(selected.id, next)}
+        onSent={() => {
+          setSelected(null);
+          setReloadKey((key) => key + 1);
+        }}
       />
     </div>
   );
