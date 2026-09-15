@@ -29,17 +29,10 @@ export async function sendOutreachEmail(input: {
   text: string;
 }) {
   const fromEmail = requiredEnv("CONTACT_FROM_EMAIL");
-  const copyTo = process.env.CONTACT_TO_EMAIL?.trim();
-  const bcc =
-    copyTo && copyTo.toLowerCase() !== input.to.toLowerCase()
-      ? copyTo
-      : undefined;
-
   const transporter = getMailer();
   await transporter.sendMail({
     from: `SIENA <${fromEmail}>`,
     to: input.to,
-    bcc,
     replyTo: fromEmail,
     subject: input.subject,
     html: input.html,
