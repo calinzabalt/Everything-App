@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import {
   addJob,
   addLead,
+  getDashboardStats,
   getJobsPage,
   getLead,
   getLeadsPage,
@@ -14,6 +15,12 @@ import { buildLeadEmailText, htmlToText } from "@/lib/lead-email";
 import { sendOutreachEmail } from "@/lib/mail";
 import type { LeadChannel } from "@/lib/leads";
 import type { Job, JobStatus, Lead, LeadStatus } from "@/data/examples";
+
+export async function getDashboardStatsAction() {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+  return getDashboardStats();
+}
 
 export async function listJobsAction(status: JobStatus, page: number) {
   const session = await getSession();

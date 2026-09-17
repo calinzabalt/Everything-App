@@ -120,6 +120,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         by: ["source"],
         where: { status: { not: "deleted" } },
         _count: { _all: true },
+        _max: { createdAt: true },
       }),
     ]);
 
@@ -155,10 +156,17 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       contacted: leadCounts.contacted,
       lead: leadCounts.lead,
       bySource: tally(
-        leadSources.map((row) => ({
-          label: row.source,
-          count: row._count._all,
-        })),
+        [...leadSources]
+          .sort((a, b) => {
+            const aTime = a._max.createdAt?.getTime() ?? 0;
+            const bTime = b._max.createdAt?.getTime() ?? 0;
+            return bTime - aTime;
+          })
+          .slice(0, 3)
+          .map((row) => ({
+            label: row.source,
+            count: row._count._all,
+          })),
       ),
     },
   };
