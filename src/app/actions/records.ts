@@ -13,6 +13,7 @@ import {
 } from "@/lib/store";
 import { buildLeadEmailText, htmlToText } from "@/lib/lead-email";
 import { sendOutreachEmail } from "@/lib/mail";
+import { OUTREACH_BLOCKED_MESSAGE, outreachBlocked } from "@/lib/outreach";
 import type { LeadChannel } from "@/lib/leads";
 import type { Job, JobStatus, Lead, LeadStatus } from "@/data/examples";
 
@@ -83,6 +84,9 @@ export async function sendLeadEmailAction(input: {
   if (!lead) return { ok: false as const, error: "Lead not found." };
   const to = lead.email.trim();
   if (!to) return { ok: false as const, error: "This lead has no email." };
+  if (outreachBlocked(lead)) {
+    return { ok: false as const, error: OUTREACH_BLOCKED_MESSAGE };
+  }
 
   const text = input.intro?.trim()
     ? buildLeadEmailText(input.intro)

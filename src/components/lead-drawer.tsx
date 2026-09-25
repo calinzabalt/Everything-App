@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Lead, LeadStatus } from "@/data/examples";
 import { formatPlace } from "@/lib/format";
 import { hrefForUrl } from "@/lib/leads";
+import { OUTREACH_BLOCKED_MESSAGE, outreachBlocked } from "@/lib/outreach";
 import { LeadChannelBadges } from "@/components/lead-channel-badges";
 import { LeadEmailPanel } from "@/components/lead-email-panel";
 import { LeadStatusSelect } from "@/components/lead-status-select";
@@ -43,6 +44,7 @@ export function LeadDrawer({
   if (!lead) return null;
 
   const hasEmail = Boolean(lead.email.trim());
+  const emailBlocked = hasEmail && outreachBlocked(lead);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -129,7 +131,7 @@ export function LeadDrawer({
                   )}
                 </dd>
               </div>
-              {hasEmail ? (
+              {hasEmail && !emailBlocked ? (
                 <div>
                   <button
                     type="button"
@@ -140,6 +142,11 @@ export function LeadDrawer({
                     View template
                   </button>
                 </div>
+              ) : null}
+              {emailBlocked ? (
+                <p className="text-sm leading-relaxed text-zinc-500">
+                  {OUTREACH_BLOCKED_MESSAGE}
+                </p>
               ) : null}
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-zinc-400">
