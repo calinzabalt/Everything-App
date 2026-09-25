@@ -1,75 +1,27 @@
-const BLOCKED_PLACES = new Set([
-  "austria",
-  "at",
-  "belgium",
-  "be",
-  "bulgaria",
-  "bg",
-  "croatia",
-  "hr",
-  "cyprus",
-  "cy",
-  "czech republic",
-  "czechia",
-  "cz",
-  "denmark",
-  "dk",
-  "estonia",
-  "ee",
-  "finland",
-  "fi",
-  "france",
-  "fr",
-  "germany",
-  "deutschland",
-  "de",
-  "greece",
-  "gr",
-  "hungary",
-  "hu",
-  "ireland",
-  "ie",
-  "italy",
-  "italia",
-  "it",
-  "latvia",
-  "lv",
-  "lithuania",
-  "lt",
-  "luxembourg",
-  "lu",
-  "malta",
-  "mt",
-  "netherlands",
-  "the netherlands",
-  "holland",
-  "nl",
-  "poland",
-  "pl",
-  "portugal",
-  "pt",
-  "romania",
-  "ro",
-  "slovakia",
-  "sk",
-  "slovenia",
-  "si",
-  "spain",
-  "es",
-  "sweden",
-  "se",
-  "iceland",
-  "is",
-  "liechtenstein",
-  "li",
-  "norway",
-  "no",
+const ALLOWED_PLACES = new Set([
+  "uk",
+  "u k",
+  "gb",
+  "united kingdom",
+  "great britain",
+  "britain",
+  "england",
+  "scotland",
+  "wales",
+  "northern ireland",
+  "us",
+  "u s",
+  "usa",
+  "u s a",
+  "united states",
+  "united states of america",
 ]);
 
 const BLOCKED_EMAIL_TLDS = [
   ".at",
   ".be",
   ".bg",
+  ".ca",
   ".hr",
   ".cy",
   ".cz",
@@ -101,7 +53,7 @@ const BLOCKED_EMAIL_TLDS = [
 ];
 
 export const OUTREACH_BLOCKED_MESSAGE =
-  "Cold email is off for EU and EEA leads, including Germany. UK, US, and Canada can still be emailed.";
+  "Cold email is only for UK and US leads.";
 
 function placeKey(value: string) {
   return value
@@ -113,11 +65,11 @@ function placeKey(value: string) {
     .replace(/\s+/g, " ");
 }
 
-function mentionsBlockedPlace(value: string) {
+function isAllowedPlace(value: string) {
   const key = placeKey(value);
   if (!key) return false;
-  if (BLOCKED_PLACES.has(key)) return true;
-  return key.split(/[,/|]/).some((part) => BLOCKED_PLACES.has(part.trim()));
+  if (ALLOWED_PLACES.has(key)) return true;
+  return key.split(/[,/|]/).some((part) => ALLOWED_PLACES.has(part.trim()));
 }
 
 function hasBlockedEmailDomain(email: string) {
@@ -133,9 +85,10 @@ export function outreachBlocked(lead: {
   location?: string | null;
   email?: string | null;
 }) {
-  return (
-    mentionsBlockedPlace(lead.country ?? "") ||
-    mentionsBlockedPlace(lead.location ?? "") ||
-    hasBlockedEmailDomain(lead.email ?? "")
-  );
+  if (hasBlockedEmailDomain(lead.email ?? "")) return true;
+  const country = lead.country?.trim() ?? "";
+  if (country) return !isAllowedPlace(country);
+  const location = lead.location?.trim() ?? "";
+  if (location) return !isAllowedPlace(location);
+  return true;
 }

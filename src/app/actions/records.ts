@@ -9,6 +9,7 @@ import {
   getLead,
   getLeadsPage,
   updateJobStatus,
+  isEmailOptedOut,
   updateLeadStatus,
 } from "@/lib/store";
 import { buildLeadEmailText, htmlToText } from "@/lib/lead-email";
@@ -84,6 +85,12 @@ export async function sendLeadEmailAction(input: {
   if (!lead) return { ok: false as const, error: "Lead not found." };
   const to = lead.email.trim();
   if (!to) return { ok: false as const, error: "This lead has no email." };
+  if (lead.emailOptOut || (await isEmailOptedOut(to))) {
+    return {
+      ok: false as const,
+      error: "This address opted out. We will not email them again.",
+    };
+  }
   if (outreachBlocked(lead)) {
     return { ok: false as const, error: OUTREACH_BLOCKED_MESSAGE };
   }

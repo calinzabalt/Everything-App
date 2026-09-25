@@ -10,6 +10,13 @@ function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function optedOut(value: unknown) {
+  if (value === true || value === 1) return true;
+  if (typeof value !== "string") return false;
+  const key = value.trim().toLowerCase();
+  return key === "true" || key === "1" || key === "yes" || key === "stop";
+}
+
 function leadFrom(body: Record<string, unknown>): Omit<Lead, "id"> | null {
   const name = text(body.name) || text(body.business) || text(body.company);
   if (!name) return null;
@@ -31,6 +38,11 @@ function leadFrom(body: Record<string, unknown>): Omit<Lead, "id"> | null {
     note: text(body.note) || text(body.notes),
     source: text(body.source) || "Grok",
     status: parseLeadStatus(text(body.status) || "new"),
+    emailOptOut:
+      optedOut(body.emailOptOut) ||
+      optedOut(body.email_opt_out) ||
+      optedOut(body.optOut) ||
+      optedOut(body.opt_out),
   };
 }
 

@@ -166,6 +166,7 @@ export function buildLeadEmailHtml(intro: string) {
             <td style="padding:8px 32px 24px;border-top:1px solid #d4cfc4;">
               <p style="margin:16px 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#6f6b62;">A boutique WordPress and web development studio. Custom builds, WooCommerce, performance work and modern front-ends for businesses and digital agencies.</p>
               <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#6f6b62;">Working with clients in the UK, US, Canada and Europe.</p>
+              <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#6f6b62;">If you would rather not hear from us, reply STOP and we will not email you again.</p>
               <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#6f6b62;">
                 <a href="mailto:${SIENA_CONTACT_EMAIL}" style="color:#9a3412;text-decoration:none;">${SIENA_CONTACT_EMAIL}</a>
               </p>
@@ -203,6 +204,7 @@ export function buildLeadEmailText(intro: string) {
     "",
     "A boutique WordPress and web development studio. Custom builds, WooCommerce, performance work and modern front-ends for businesses and digital agencies.",
     "Working with clients in the UK, US, Canada and Europe.",
+    "If you would rather not hear from us, reply STOP and we will not email you again.",
     SIENA_CONTACT_EMAIL,
   ].join("\n");
 }

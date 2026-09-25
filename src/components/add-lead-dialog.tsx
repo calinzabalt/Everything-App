@@ -73,6 +73,7 @@ export function AddLeadDialog({ open, onClose, onAdd }: Props) {
         note: note.trim(),
         source: source.trim() || "Manual",
         status: "new",
+        emailOptOut: false,
       });
     } catch {
       setError("Could not save. Try again.");

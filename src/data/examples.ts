@@ -32,6 +32,7 @@ export type Lead = {
   url: string;
   source: string;
   status: LeadStatus;
+  emailOptOut: boolean;
 };
 
 const jobDrafts: Omit<Job, "status">[] = [
@@ -283,6 +284,7 @@ export const exampleLeads: Lead[] = [
     url: "",
     source: "Google Maps",
     status: "new",
+    emailOptOut: false,
   },
   {
     id: "lead-2",
@@ -295,5 +297,6 @@ export const exampleLeads: Lead[] = [
     url: "https://northpeak.example",
     source: "Clutch",
     status: "new",
+    emailOptOut: false,
   },
 ];

@@ -44,7 +44,8 @@ export function LeadDrawer({
   if (!lead) return null;
 
   const hasEmail = Boolean(lead.email.trim());
-  const emailBlocked = hasEmail && outreachBlocked(lead);
+  const optedOut = lead.emailOptOut;
+  const emailBlocked = hasEmail && !optedOut && outreachBlocked(lead);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -131,7 +132,7 @@ export function LeadDrawer({
                   )}
                 </dd>
               </div>
-              {hasEmail && !emailBlocked ? (
+              {hasEmail && !emailBlocked && !optedOut ? (
                 <div>
                   <button
                     type="button"
@@ -142,6 +143,11 @@ export function LeadDrawer({
                     View template
                   </button>
                 </div>
+              ) : null}
+              {optedOut ? (
+                <p className="text-sm leading-relaxed text-zinc-500">
+                  This address opted out. We will not email them again.
+                </p>
               ) : null}
               {emailBlocked ? (
                 <p className="text-sm leading-relaxed text-zinc-500">

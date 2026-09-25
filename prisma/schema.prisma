@@ -68,13 +68,15 @@ model Lead {
   location  String?
   country   String?
   note      String?    @db.Text
-  source    String?
-  status    LeadStatus @default(new)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  source       String?
+  status       LeadStatus @default(new)
+  emailOptOut  Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@index([status])
   @@index([source])
+  @@index([emailOptOut])
   @@map("leads")
 }
 

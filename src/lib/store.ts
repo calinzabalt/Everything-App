@@ -49,6 +49,7 @@ function leadFromDb(row: DbLead): Lead {
     note: row.note ?? "",
     source: row.source ?? "",
     status: row.status,
+    emailOptOut: row.emailOptOut,
   };
 }
 
@@ -308,15 +309,21 @@ export async function addLead(input: Omit<Lead, "id"> & { id?: string }) {
         where: { name, location },
       });
   if (existing) {
+    const emailOptOut =
+      existing.emailOptOut ||
+      input.emailOptOut ||
+      (email ? await isEmailOptedOut(email) : false);
     const next = {
       email: existing.email || email || null,
       phone: existing.phone || phone || null,
       url: existing.url || url || null,
+      emailOptOut,
     };
     if (
       next.email !== existing.email ||
       next.phone !== existing.phone ||
-      next.url !== existing.url
+      next.url !== existing.url ||
+      next.emailOptOut !== existing.emailOptOut
     ) {
       const row = await prisma.lead.update({
         where: { id: existing.id },
@@ -338,9 +345,64 @@ export async function addLead(input: Omit<Lead, "id"> & { id?: string }) {
       note: input.note.trim() || null,
       source: input.source.trim() || "Grok",
       status: leadStatusToDb(input.status || "new"),
+      emailOptOut: input.emailOptOut || (await isEmailOptedOut(email)),
     },
   });
   return leadFromDb(row);
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export async function listOptedOutEmails() {
+  const rows = await prisma.lead.findMany({
+    where: {
+      emailOptOut: true,
+      AND: [{ email: { not: null } }, { email: { not: "" } }],
+    },
+    select: { email: true },
+  });
+  return [
+    ...new Set(
+      rows
+        .map((row) => normalizeEmail(row.email ?? ""))
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export async function isEmailOptedOut(email: string) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return false;
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM leads
+    WHERE emailOptOut = true AND LOWER(email) = ${normalized}
+    LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
+export async function markEmailsOptedOut(emails: string[]) {
+  const unique = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
+  for (const email of unique) {
+    const updated = await prisma.$executeRaw`
+      UPDATE leads
+      SET emailOptOut = true
+      WHERE LOWER(email) = ${email}
+    `;
+    if (Number(updated) > 0) continue;
+    await prisma.lead.create({
+      data: {
+        name: email,
+        email,
+        source: "Opt out",
+        status: "closed",
+        emailOptOut: true,
+      },
+    });
+  }
+  return unique;
 }
 
 export async function getLead(id: string) {
