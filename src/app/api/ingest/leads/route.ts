@@ -38,6 +38,11 @@ function leadFrom(body: Record<string, unknown>): Omit<Lead, "id"> | null {
     note: text(body.note) || text(body.notes),
     source: text(body.source) || "Grok",
     status: parseLeadStatus(text(body.status) || "new"),
+    kind: text(body.kind).toLowerCase() === "partner" ? "partner" : "client",
+    emailedAt: null,
+    followUpSentAt: null,
+    repliedAt: null,
+    replyText: "",
     emailOptOut:
       optedOut(body.emailOptOut) ||
       optedOut(body.email_opt_out) ||

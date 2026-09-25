@@ -9,13 +9,17 @@ import {
   getLead,
   getLeadsPage,
   updateJobStatus,
+  getOutreachReport,
   isEmailOptedOut,
+  markLeadEmailed,
+  saveJobAsLead,
+  updateLeadKind,
   updateLeadStatus,
 } from "@/lib/store";
 import { buildLeadEmailText, htmlToText } from "@/lib/lead-email";
 import { sendOutreachEmail } from "@/lib/mail";
 import { OUTREACH_BLOCKED_MESSAGE, outreachBlocked } from "@/lib/outreach";
-import type { LeadChannel } from "@/lib/leads";
+import { followUpReady, type LeadChannel } from "@/lib/leads";
 import type { Job, JobStatus, Lead, LeadStatus } from "@/data/examples";
 
 export async function getDashboardStatsAction() {
@@ -34,10 +38,11 @@ export async function listLeadsAction(
   status: LeadStatus,
   page: number,
   channel: LeadChannel = "all",
+  kind: "all" | "client" | "partner" = "all",
 ) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
-  return getLeadsPage(status, page, channel);
+  return getLeadsPage(status, page, channel, undefined, kind);
 }
 
 export async function createJobAction(job: Job) {
@@ -64,11 +69,30 @@ export async function updateLeadStatusAction(id: string, status: LeadStatus) {
   return updateLeadStatus(id, status);
 }
 
+export async function updateLeadKindAction(id: string, kind: "client" | "partner") {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+  return updateLeadKind(id, kind);
+}
+
+export async function saveJobAsLeadAction(jobId: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+  return saveJobAsLead(jobId);
+}
+
+export async function getOutreachReportAction() {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+  return getOutreachReport();
+}
+
 export async function sendLeadEmailAction(input: {
   leadId: string;
   subject: string;
   html: string;
   intro?: string;
+  followUp?: boolean;
 }) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
@@ -94,6 +118,12 @@ export async function sendLeadEmailAction(input: {
   if (outreachBlocked(lead)) {
     return { ok: false as const, error: OUTREACH_BLOCKED_MESSAGE };
   }
+  if (input.followUp && !followUpReady(lead)) {
+    return {
+      ok: false as const,
+      error: "A follow-up is only sent once, a week after the first email, if they have not replied.",
+    };
+  }
 
   const text = input.intro?.trim()
     ? buildLeadEmailText(input.intro)
@@ -111,10 +141,12 @@ export async function sendLeadEmailAction(input: {
   const nextStatus = keepStatus.includes(lead.status)
     ? lead.status
     : "contacted";
+  const stamped = await markLeadEmailed(lead.id, Boolean(input.followUp));
+  if (!stamped) return { ok: false as const, error: "Email sent, but the lead could not be updated." };
   const updated =
     nextStatus === lead.status
-      ? lead
-      : ((await updateLeadStatus(lead.id, nextStatus)) ?? lead);
+      ? stamped
+      : ((await updateLeadStatus(lead.id, nextStatus)) ?? stamped);
 
   return { ok: true as const, lead: updated };
 }

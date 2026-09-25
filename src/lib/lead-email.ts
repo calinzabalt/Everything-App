@@ -6,14 +6,47 @@ export type LeadEmailDraft = {
   intro: string;
 };
 
-export function defaultLeadEmailDraft(lead: { name: string }): LeadEmailDraft {
+export function defaultLeadEmailDraft(lead: {
+  name: string;
+  note?: string;
+  kind?: "client" | "partner";
+  followUp?: boolean;
+}): LeadEmailDraft {
   const name = lead.name.trim() || "there";
+  if (lead.followUp) {
+    return {
+      subject: `Following up, ${name}`,
+      intro: [
+        `Hi ${name},`,
+        "",
+        "I wrote last week. If a build, a fix, or extra development capacity would help, I can take it on.",
+        "",
+        "If now is not the time, no need to reply.",
+      ].join("\n"),
+    };
+  }
+  if (lead.kind === "partner") {
+    return {
+      subject: `Development support for ${name}`,
+      intro: [
+        `Hi ${name},`,
+        "",
+        "I run SIENA, a boutique WordPress studio. We support agencies with white-label WordPress, WooCommerce, custom functionality, and ongoing development. Your clients, our build.",
+        "",
+        "If you need extra development capacity, I would like to help.",
+      ].join("\n"),
+    };
+  }
+  const note = lead.note?.trim() ?? "";
+  const noticed = note
+    ? `I was looking at your site and noticed: ${note.slice(0, 300)}`
+    : "I'm reaching out from SIENA, a boutique WordPress and web development studio. We help businesses with custom WordPress, WooCommerce, performance work and modern front-ends.";
   return {
     subject: `WordPress & web development for ${name}`,
     intro: [
       `Hi ${name},`,
       "",
-      "I'm reaching out from SIENA, a boutique WordPress and web development studio. We help businesses and digital agencies with custom WordPress, WooCommerce, performance work and modern front-ends.",
+      noticed,
       "",
       "If you have a project in mind — a new site, work on an existing WordPress build, or ongoing development support — I'd like to hear what you're building.",
     ].join("\n"),

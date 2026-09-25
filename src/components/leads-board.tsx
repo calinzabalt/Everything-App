@@ -29,6 +29,7 @@ export function LeadsBoard() {
   const [view, setView] = useState<BoardView>("list");
   const [status, setStatus] = useState<LeadStatus>("new");
   const [channel, setChannel] = useState<LeadChannel>("all");
+  const [kind, setKind] = useState<"all" | "client" | "partner">("all");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
@@ -42,7 +43,7 @@ export function LeadsBoard() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listLeadsAction(status, page, channel)
+    listLeadsAction(status, page, channel, kind)
       .then((result) => {
         if (cancelled) return;
         const pageCount = Math.max(1, Math.ceil(result.total / result.pageSize));
@@ -64,7 +65,7 @@ export function LeadsBoard() {
     return () => {
       cancelled = true;
     };
-  }, [status, channel, page, reloadKey]);
+  }, [status, channel, kind, page, reloadKey]);
 
   const busy = pendingId !== null;
   const statusLabel = leadStatusLabel(status).toLowerCase();
@@ -161,6 +162,32 @@ export function LeadsBoard() {
             </button>
           ))}
         </div>
+
+        <div className="mt-2 inline-flex w-fit gap-0.5 rounded-lg bg-zinc-100 p-0.5">
+          {(
+            [
+              ["all", "All"],
+              ["client", "Clients"],
+              ["partner", "Partners"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setKind(id);
+                setPage(1);
+              }}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200 ${
+                kind === id
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-600 hover:bg-zinc-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <div
@@ -220,6 +247,10 @@ export function LeadsBoard() {
         onStatus={(next) => selected && setLeadStatus(selected.id, next)}
         onSent={() => {
           setSelected(null);
+          setReloadKey((key) => key + 1);
+        }}
+        onPatched={(lead) => {
+          setSelected(lead);
           setReloadKey((key) => key + 1);
         }}
       />

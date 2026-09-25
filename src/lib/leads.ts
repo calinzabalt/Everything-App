@@ -49,6 +49,24 @@ export function leadContactChannels(lead: Pick<Lead, "email" | "phone" | "url">)
   return channels;
 }
 
+const FOLLOW_UP_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function followUpReady(lead: {
+  emailedAt: string | null;
+  followUpSentAt: string | null;
+  repliedAt: string | null;
+  emailOptOut: boolean;
+  status: LeadStatus;
+}) {
+  if (!lead.emailedAt || lead.followUpSentAt || lead.repliedAt || lead.emailOptOut) {
+    return false;
+  }
+  if (lead.status === "won" || lead.status === "closed" || lead.status === "deleted") {
+    return false;
+  }
+  return Date.now() - new Date(lead.emailedAt).getTime() >= FOLLOW_UP_AFTER_MS;
+}
+
 export function hrefForUrl(url: string) {
   const trimmed = url.trim();
   if (!trimmed) return "";

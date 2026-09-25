@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
     request.cookies.get(SESSION_COOKIE)?.value,
   );
 
-  if (pathname.startsWith("/api/ingest")) {
+  if (pathname.startsWith("/api/ingest") || pathname.startsWith("/api/webhooks")) {
     return NextResponse.next();
   }
 

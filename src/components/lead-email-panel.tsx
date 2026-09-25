@@ -11,15 +11,28 @@ import {
 
 type Props = {
   lead: Lead;
+  followUp?: boolean;
   disabled?: boolean;
   onBack: () => void;
   onSent: (lead: Lead) => void;
 };
 
-export function LeadEmailPanel({ lead, disabled = false, onBack, onSent }: Props) {
+export function LeadEmailPanel({
+  lead,
+  followUp = false,
+  disabled = false,
+  onBack,
+  onSent,
+}: Props) {
   const defaults = useMemo(
-    () => defaultLeadEmailDraft({ name: lead.name }),
-    [lead.name],
+    () =>
+      defaultLeadEmailDraft({
+        name: lead.name,
+        note: lead.note,
+        kind: lead.kind,
+        followUp,
+      }),
+    [followUp, lead.kind, lead.name, lead.note],
   );
   const [subject, setSubject] = useState(defaults.subject);
   const [intro, setIntro] = useState(defaults.intro);
@@ -66,6 +79,7 @@ export function LeadEmailPanel({ lead, disabled = false, onBack, onSent }: Props
         subject,
         html,
         intro: htmlEdited ? undefined : intro,
+        followUp,
       });
       if (!result.ok) {
         setError(result.error);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   createJobAction,
   listJobsAction,
+  saveJobAsLeadAction,
   updateJobStatusAction,
 } from "@/app/actions/records";
 import { AddJobDialog } from "@/components/add-job-dialog";
@@ -194,8 +195,9 @@ function JobList({
       {jobs.length === 0 ? (
         <EmptyState status={status} />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-          <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,0.8fr)_minmax(0,1fr)_88px_220px] gap-4 border-b border-zinc-100 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+          <div className="min-w-[56rem]">
+          <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(8rem,0.8fr)_minmax(8rem,1fr)_4rem_24rem] gap-3 border-b border-zinc-100 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
             <span>Role</span>
             <span>Company</span>
             <span>Location</span>
@@ -206,7 +208,7 @@ function JobList({
             {jobs.map((job) => (
               <li
                 key={job.id}
-                className={`grid h-14 grid-cols-[minmax(0,1.5fr)_minmax(0,0.8fr)_minmax(0,1fr)_88px_220px] items-center gap-4 border-b border-zinc-100 px-4 last:border-b-0 transition-colors duration-200 hover:bg-zinc-50 animate-rise-in ${
+                className={`grid min-h-16 grid-cols-[minmax(0,1.5fr)_minmax(8rem,0.8fr)_minmax(8rem,1fr)_4rem_24rem] items-center gap-3 border-b border-zinc-100 px-4 py-2 last:border-b-0 transition-colors duration-200 hover:bg-zinc-50 animate-rise-in ${
                   pendingId === job.id ? "opacity-50" : ""
                 }`}
               >
@@ -233,6 +235,7 @@ function JobList({
               </li>
             ))}
           </ul>
+          </div>
         </div>
       )}
     </div>
@@ -316,16 +319,27 @@ function JobActions({
   }
 
   return (
-    <div className={`flex gap-1.5 ${align === "end" ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-wrap gap-1.5 ${align === "end" ? "justify-end" : "justify-start"}`}>
       {job.status !== "deleted" && (
         <a
           href={job.url}
           target="_blank"
           rel="noreferrer"
-          className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-900"
+          className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-900"
         >
           Check
         </a>
+      )}
+      {job.status !== "deleted" && (
+        <button
+          type="button"
+          onClick={() => {
+            void saveJobAsLeadAction(job.id);
+          }}
+          className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          Save as lead
+        </button>
       )}
 
       {job.status === "not_applied" && (
@@ -335,14 +349,14 @@ function JobActions({
             target="_blank"
             rel="noreferrer"
             onClick={() => onStatus(job.id, "applied")}
-            className="rounded-lg bg-zinc-950 px-2.5 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-zinc-800"
+            className="shrink-0 whitespace-nowrap rounded-lg bg-zinc-950 px-2.5 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-zinc-800"
           >
             Apply
           </a>
           <button
             type="button"
             onClick={() => onStatus(job.id, "deleted")}
-            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-700"
+            className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-700"
           >
             Delete
           </button>
@@ -353,7 +367,7 @@ function JobActions({
         <button
           type="button"
           onClick={() => onStatus(job.id, "deleted")}
-          className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-700"
+          className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-700"
         >
           Delete
         </button>
@@ -363,7 +377,7 @@ function JobActions({
         <button
           type="button"
           onClick={() => onStatus(job.id, "not_applied")}
-          className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-900"
+          className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:bg-zinc-100 hover:text-zinc-900"
         >
           Restore
         </button>

@@ -49,7 +49,12 @@ function leadFromDb(row: DbLead): Lead {
     note: row.note ?? "",
     source: row.source ?? "",
     status: row.status,
+    kind: row.kind,
     emailOptOut: row.emailOptOut,
+    emailedAt: row.emailedAt?.toISOString() ?? null,
+    followUpSentAt: row.followUpSentAt?.toISOString() ?? null,
+    repliedAt: row.repliedAt?.toISOString() ?? null,
+    replyText: row.replyText ?? "",
   };
 }
 
@@ -215,8 +220,10 @@ export async function getJobsPage(
 function leadListWhere(
   status: LeadStatus,
   channel: LeadChannel,
+  kind: "all" | "client" | "partner" = "all",
 ): Prisma.LeadWhereInput {
   const where: Prisma.LeadWhereInput = { status };
+  if (kind === "client" || kind === "partner") where.kind = kind;
   if (channel === "email") {
     where.AND = [{ email: { not: null } }, { email: { not: "" } }];
   } else if (channel === "phone") {
@@ -232,9 +239,10 @@ export async function getLeadsPage(
   page: number,
   channel: LeadChannel = "all",
   pageSize = PAGE_SIZE,
+  kind: "all" | "client" | "partner" = "all",
 ): Promise<LeadsPage> {
   const safePage = clampPage(page);
-  const where = leadListWhere(status, channel);
+  const where = leadListWhere(status, channel, kind);
   const [rows, total, grouped] = await Promise.all([
     prisma.lead.findMany({
       where,
@@ -345,6 +353,7 @@ export async function addLead(input: Omit<Lead, "id"> & { id?: string }) {
       note: input.note.trim() || null,
       source: input.source.trim() || "Grok",
       status: leadStatusToDb(input.status || "new"),
+      kind: input.kind === "partner" ? "partner" : "client",
       emailOptOut: input.emailOptOut || (await isEmailOptedOut(email)),
     },
   });
@@ -420,4 +429,150 @@ export async function updateLeadStatus(id: string, status: string) {
   } catch {
     return null;
   }
+}
+
+export async function updateLeadKind(id: string, kind: "client" | "partner") {
+  try {
+    const row = await prisma.lead.update({
+      where: { id },
+      data: { kind },
+    });
+    return leadFromDb(row);
+  } catch {
+    return null;
+  }
+}
+
+export async function markLeadEmailed(id: string, followUp: boolean) {
+  const current = await prisma.lead.findUnique({ where: { id } });
+  if (!current) return null;
+  const row = await prisma.lead.update({
+    where: { id },
+    data: followUp
+      ? { followUpSentAt: new Date() }
+      : { emailedAt: current.emailedAt ?? new Date() },
+  });
+  return leadFromDb(row);
+}
+
+function replyIsStop(subject: string, body: string) {
+  const first = body
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean)
+    ?.toLowerCase()
+    .replace(/[.!]+$/, "");
+  const whole = body.trim().toLowerCase();
+  const words = ["stop", "unsubscribe", "remove me"];
+  return (
+    subject.trim().toLowerCase() === "stop" ||
+    words.some((word) => first === word || whole === word)
+  );
+}
+
+export async function recordInboundReply(input: {
+  from: string;
+  subject: string;
+  body: string;
+}) {
+  const email = input.from.trim().toLowerCase();
+  if (!email || email === "hello@sienaworks.com") return { ignored: true as const };
+  const body = input.body.trim().slice(0, 4000);
+  if (replyIsStop(input.subject, body)) {
+    await markEmailsOptedOut([email]);
+    return { optedOut: true as const, email };
+  }
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM leads WHERE LOWER(email) = ${email}
+  `;
+  const now = new Date();
+  if (rows.length === 0) {
+    const created = await prisma.lead.create({
+      data: {
+        name: email,
+        email,
+        source: "Reply",
+        status: "lead",
+        repliedAt: now,
+        replyText: body || input.subject,
+      },
+    });
+    return { lead: leadFromDb(created) };
+  }
+
+  let last = null;
+  for (const row of rows) {
+    const current = await prisma.lead.findUnique({ where: { id: row.id } });
+    if (!current) continue;
+    const keep: LeadStatus[] = ["won", "closed", "deleted"];
+    last = await prisma.lead.update({
+      where: { id: row.id },
+      data: {
+        repliedAt: current.repliedAt ?? now,
+        replyText: body || input.subject,
+        status: keep.includes(current.status) ? current.status : "lead",
+      },
+    });
+  }
+  return last ? { lead: leadFromDb(last) } : { ignored: true as const };
+}
+
+export async function saveJobAsLead(jobId: string) {
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  if (!job) return null;
+  const name = (job.company ?? "").trim();
+  return addLead({
+    name: name && name !== "—" ? name : job.title,
+    email: "",
+    phone: "",
+    url: "",
+    location: job.location ?? "",
+    country: job.country ?? "",
+    note: `${job.title}\n${job.url}`,
+    source: "Job",
+    status: "new",
+    kind: "client",
+    emailOptOut: false,
+    emailedAt: null,
+    followUpSentAt: null,
+    repliedAt: null,
+    replyText: "",
+  });
+}
+
+export type SourceReport = {
+  source: string;
+  sent: number;
+  replied: number;
+  won: number;
+};
+
+export async function getOutreachReport(): Promise<SourceReport[]> {
+  const rows = await prisma.lead.findMany({
+    where: { status: { not: "deleted" } },
+    select: {
+      source: true,
+      emailedAt: true,
+      repliedAt: true,
+      status: true,
+    },
+  });
+  const bySource = new Map<string, SourceReport>();
+  for (const row of rows) {
+    const source = row.source?.trim() || "Unknown";
+    const current = bySource.get(source) ?? { source, sent: 0, replied: 0, won: 0 };
+    const sent =
+      row.emailedAt != null ||
+      row.status === "contacted" ||
+      row.status === "lead" ||
+      row.status === "won";
+    if (sent) current.sent += 1;
+    if (row.repliedAt != null || row.status === "lead") current.replied += 1;
+    if (row.status === "won") current.won += 1;
+    bySource.set(source, current);
+  }
+  return [...bySource.values()]
+    .filter((row) => row.sent > 0 || row.replied > 0 || row.won > 0)
+    .sort((a, b) => b.sent - a.sent || b.replied - a.replied);
 }

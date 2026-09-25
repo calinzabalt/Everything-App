@@ -21,6 +21,8 @@ export type LeadStatus =
   | "closed"
   | "deleted";
 
+export type LeadKind = "client" | "partner";
+
 export type Lead = {
   id: string;
   name: string;
@@ -32,7 +34,12 @@ export type Lead = {
   url: string;
   source: string;
   status: LeadStatus;
+  kind: LeadKind;
   emailOptOut: boolean;
+  emailedAt: string | null;
+  followUpSentAt: string | null;
+  repliedAt: string | null;
+  replyText: string;
 };
 
 const jobDrafts: Omit<Job, "status">[] = [
@@ -284,7 +291,12 @@ export const exampleLeads: Lead[] = [
     url: "",
     source: "Google Maps",
     status: "new",
+    kind: "client",
     emailOptOut: false,
+    emailedAt: null,
+    followUpSentAt: null,
+    repliedAt: null,
+    replyText: "",
   },
   {
     id: "lead-2",
@@ -297,6 +309,11 @@ export const exampleLeads: Lead[] = [
     url: "https://northpeak.example",
     source: "Clutch",
     status: "new",
+    kind: "partner",
     emailOptOut: false,
+    emailedAt: null,
+    followUpSentAt: null,
+    repliedAt: null,
+    replyText: "",
   },
 ];

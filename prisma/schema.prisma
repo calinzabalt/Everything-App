@@ -27,6 +27,11 @@ enum LeadStatus {
   deleted
 }
 
+enum LeadKind {
+  client
+  partner
+}
+
 enum ClientStatus {
   active
   not_active
@@ -69,9 +74,14 @@ model Lead {
   country   String?
   note      String?    @db.Text
   source       String?
-  status       LeadStatus @default(new)
-  emailOptOut  Boolean    @default(false)
-  createdAt    DateTime   @default(now())
+  status          LeadStatus @default(new)
+  kind            LeadKind   @default(client)
+  emailOptOut     Boolean    @default(false)
+  emailedAt       DateTime?
+  followUpSentAt  DateTime?
+  repliedAt       DateTime?
+  replyText       String?    @db.Text
+  createdAt       DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([status])

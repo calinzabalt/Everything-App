@@ -9,6 +9,7 @@ const items = [
   { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
   { href: "/jobs", label: "Job Finder", icon: BriefcaseIcon },
   { href: "/leads", label: "Lead Finder", icon: TargetIcon },
+  { href: "/reports", label: "Reports", icon: ReportsIcon },
 ] as const;
 
 export function Sidebar() {
@@ -145,6 +146,19 @@ function TargetIcon() {
       <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.7" />
       <path
         d="M12 2v3M12 19v3M2 12h3M19 12h3"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ReportsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M5 19V10M12 19V5M19 19v-7"
         stroke="currentColor"
         strokeWidth="1.7"
         strokeLinecap="round"

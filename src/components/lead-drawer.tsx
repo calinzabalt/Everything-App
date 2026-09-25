@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Lead, LeadStatus } from "@/data/examples";
 import { formatPlace } from "@/lib/format";
-import { hrefForUrl } from "@/lib/leads";
+import { followUpReady, hrefForUrl } from "@/lib/leads";
+import { updateLeadKindAction } from "@/app/actions/records";
 import { OUTREACH_BLOCKED_MESSAGE, outreachBlocked } from "@/lib/outreach";
 import { LeadChannelBadges } from "@/components/lead-channel-badges";
 import { LeadEmailPanel } from "@/components/lead-email-panel";
@@ -15,6 +16,7 @@ type Props = {
   onClose: () => void;
   onStatus?: (status: LeadStatus) => void;
   onSent?: (lead: Lead) => void;
+  onPatched?: (lead: Lead) => void;
 };
 
 export function LeadDrawer({
@@ -23,8 +25,10 @@ export function LeadDrawer({
   onClose,
   onStatus,
   onSent,
+  onPatched,
 }: Props) {
   const [templateLeadId, setTemplateLeadId] = useState<string | null>(null);
+  const [followUp, setFollowUp] = useState(false);
   const showTemplate = Boolean(lead && templateLeadId === lead.id);
 
   useEffect(() => {
@@ -89,8 +93,9 @@ export function LeadDrawer({
 
         {showTemplate ? (
           <LeadEmailPanel
-            key={lead.id}
+            key={`${lead.id}-${followUp ? "follow" : "first"}`}
             lead={lead}
+            followUp={followUp}
             disabled={pending}
             onBack={() => setTemplateLeadId(null)}
             onSent={(updated) => onSent?.(updated)}
@@ -132,16 +137,68 @@ export function LeadDrawer({
                   )}
                 </dd>
               </div>
-              {hasEmail && !emailBlocked && !optedOut ? (
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                  Type
+                </dt>
+                <dd className="mt-1.5 flex gap-2">
+                  {(["client", "partner"] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      disabled={pending || lead.kind === kind}
+                      onClick={() => {
+                        void updateLeadKindAction(lead.id, kind).then((updated) => {
+                          if (updated) onPatched?.(updated);
+                        });
+                      }}
+                      className={`h-8 rounded-lg px-3 text-xs font-medium ${
+                        lead.kind === kind
+                          ? "bg-zinc-950 text-white"
+                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                      }`}
+                    >
+                      {kind === "partner" ? "Partner" : "Client"}
+                    </button>
+                  ))}
+                </dd>
+              </div>
+              {lead.replyText ? (
                 <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                    Reply
+                  </dt>
+                  <dd className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">
+                    {lead.replyText}
+                  </dd>
+                </div>
+              ) : null}
+              {hasEmail && !emailBlocked && !optedOut ? (
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setTemplateLeadId(lead.id)}
+                    onClick={() => {
+                      setFollowUp(false);
+                      setTemplateLeadId(lead.id);
+                    }}
                     disabled={pending}
                     className="h-10 rounded-xl bg-zinc-950 px-4 text-sm font-medium text-white transition-colors duration-200 hover:bg-zinc-800 disabled:opacity-60"
                   >
                     View template
                   </button>
+                  {followUpReady(lead) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFollowUp(true);
+                        setTemplateLeadId(lead.id);
+                      }}
+                      disabled={pending}
+                      className="h-10 rounded-xl border border-zinc-300 px-4 text-sm font-medium text-zinc-800 transition-colors duration-200 hover:bg-zinc-50 disabled:opacity-60"
+                    >
+                      Follow up
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
               {optedOut ? (
